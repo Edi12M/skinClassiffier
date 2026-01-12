@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skin Lesion Classifier - AI-Powered Skin Analysis</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <i class="fas fa-microscope"></i>
+                <span>SkinAI Classifier</span>
+            </div>
+            <nav class="nav">
+                <a href="#about">About</a>
+                <a href="#upload">Analyze</a>
+                <a href="#classes">Classes</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>AI-Powered Skin Lesion Classification</h1>
+                <p>Upload a skin lesion image and get instant AI analysis using our deep learning model trained on the HAM10000 dataset.</p>
+                <a href="#upload" class="btn btn-primary">
+                    <i class="fas fa-upload"></i> Analyze Your Image
+                </a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat-card">
+                    <i class="fas fa-brain"></i>
+                    <h3>EfficientNetB0</h3>
+                    <p>Transfer Learning</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-images"></i>
+                    <h3>10,000+</h3>
+                    <p>Training Images</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-tags"></i>
+                    <h3>7 Classes</h3>
+                    <p>Skin Conditions</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="about">
+        <div class="container">
+            <h2>About This Model</h2>
+            <div class="about-grid">
+                <div class="about-card">
+                    <i class="fas fa-database"></i>
+                    <h3>HAM10000 Dataset</h3>
+                    <p>Trained on the Human Against Machine dataset containing 10,015 dermatoscopic images of pigmented skin lesions collected over 20 years.</p>
+                </div>
+                <div class="about-card">
+                    <i class="fas fa-network-wired"></i>
+                    <h3>Deep Learning Architecture</h3>
+                    <p>Uses EfficientNetB0 with transfer learning from ImageNet, fine-tuned for skin lesion classification with custom classification layers.</p>
+                </div>
+                <div class="about-card">
+                    <i class="fas fa-chart-line"></i>
+                    <h3>High Accuracy</h3>
+                    <p>Achieves strong performance across all 7 skin lesion categories with balanced precision and recall metrics.</p>
+                </div>
+                <div class="about-card">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Disclaimer</h3>
+                    <p>This tool is for educational purposes only. Always consult a dermatologist for professional medical diagnosis and treatment.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Upload Section -->
+    <section id="upload" class="upload-section">
+        <div class="container">
+            <h2>Analyze Skin Lesion</h2>
+            <p class="section-subtitle">Upload a clear image of the skin lesion for AI analysis</p>
+            
+            <div class="upload-container">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-placeholder" id="uploadPlaceholder">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h3>Drag & Drop Image Here</h3>
+                        <p>or click to browse</p>
+                        <span class="file-types">Supports: JPG, PNG, JPEG</span>
+                    </div>
+                    <img id="previewImage" class="preview-image hidden" alt="Preview">
+                    <input type="file" id="imageInput" accept="image/*" hidden>
+                </div>
+                
+                <div class="upload-actions">
+                    <button id="analyzeBtn" class="btn btn-primary btn-lg" disabled>
+                        <i class="fas fa-search"></i> Analyze Image
+                    </button>
+                    <button id="clearBtn" class="btn btn-secondary" disabled>
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="loading-state hidden">
+                <div class="spinner"></div>
+                <p>Analyzing image with AI model...</p>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="results-section hidden">
+                <div class="result-header">
+                    <h3><i class="fas fa-chart-pie"></i> Analysis Results</h3>
+                </div>
+                
+                <div class="result-main">
+                    <div class="prediction-card" id="mainPrediction">
+                        <div class="prediction-badge" id="severityBadge">Benign</div>
+                        <h2 id="predictionName">Loading...</h2>
+                        <p class="prediction-code" id="predictionCode">Code: ---</p>
+                        <div class="confidence-meter">
+                            <div class="confidence-label">
+                                <span>Confidence</span>
+                                <span id="confidenceValue">0%</span>
+                            </div>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" id="confidenceFill"></div>
+                            </div>
+                        </div>
+                        <p class="prediction-description" id="predictionDescription">
+                            Description will appear here...
+                        </p>
+                    </div>
+                </div>
+
+                <div class="all-predictions">
+                    <h4><i class="fas fa-list-ol"></i> All Class Probabilities</h4>
+                    <div class="predictions-list" id="predictionsList">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+
+                <div class="disclaimer-box">
+                    <i class="fas fa-info-circle"></i>
+                    <p><strong>Important:</strong> This AI analysis is for informational purposes only and should not be used as a substitute for professional medical advice, diagnosis, or treatment. Please consult a qualified dermatologist for any skin concerns.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Classes Section -->
+    <section id="classes" class="classes-section">
+        <div class="container">
+            <h2>Skin Lesion Classes</h2>
+            <p class="section-subtitle">The model can identify 7 different types of skin lesions</p>
+            
+            <div class="classes-grid">
+                <div class="class-card benign">
+                    <div class="class-icon"><i class="fas fa-check-circle"></i></div>
+                    <h3>Melanocytic Nevi (nv)</h3>
+                    <span class="class-badge benign">Benign</span>
+                    <p>Common moles - harmless clusters of pigmented cells appearing as small, dark brown spots.</p>
+                </div>
+                
+                <div class="class-card benign">
+                    <div class="class-icon"><i class="fas fa-check-circle"></i></div>
+                    <h3>Benign Keratosis (bkl)</h3>
+                    <span class="class-badge benign">Benign</span>
+                    <p>Non-cancerous skin growths including seborrheic keratoses and solar lentigines.</p>
+                </div>
+                
+                <div class="class-card benign">
+                    <div class="class-icon"><i class="fas fa-check-circle"></i></div>
+                    <h3>Dermatofibroma (df)</h3>
+                    <span class="class-badge benign">Benign</span>
+                    <p>Common benign skin nodules, usually found on the legs and are harmless.</p>
+                </div>
+                
+                <div class="class-card benign">
+                    <div class="class-icon"><i class="fas fa-tint"></i></div>
+                    <h3>Vascular Lesions (vasc)</h3>
+                    <span class="class-badge benign">Benign</span>
+                    <p>Skin abnormalities caused by blood vessels, including cherry angiomas.</p>
+                </div>
+                
+                <div class="class-card precancer">
+                    <div class="class-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                    <h3>Actinic Keratoses (akiec)</h3>
+                    <span class="class-badge precancer">Pre-cancerous</span>
+                    <p>Rough, scaly patches caused by sun exposure. Can develop into squamous cell carcinoma.</p>
+                </div>
+                
+                <div class="class-card cancer">
+                    <div class="class-icon"><i class="fas fa-times-circle"></i></div>
+                    <h3>Basal Cell Carcinoma (bcc)</h3>
+                    <span class="class-badge cancer">Cancerous</span>
+                    <p>The most common type of skin cancer. Usually appears as a slightly transparent bump.</p>
+                </div>
+                
+                <div class="class-card cancer-serious">
+                    <div class="class-icon"><i class="fas fa-radiation"></i></div>
+                    <h3>Melanoma (mel)</h3>
+                    <span class="class-badge cancer-serious">Cancerous (Serious)</span>
+                    <p>The most serious type of skin cancer. Develops from melanocytes (pigment cells).</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <i class="fas fa-microscope"></i>
+                    <span>SkinAI Classifier</span>
+                </div>
+                <p>Built with TensorFlow/Keras • HAM10000 Dataset • EfficientNetB0</p>
+                <p class="footer-disclaimer">For educational purposes only. Not for medical diagnosis.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
