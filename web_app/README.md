@@ -50,9 +50,10 @@ Navigate to: **http://localhost:5000**
 ## 🔧 Requirements
 
 - Python 3.8+
-- TensorFlow 2.12+
+- PyTorch 2.0+
+- TorchVision 0.15+
 - Flask 2.3+
-- The trained model file (`best_model_EfficientNetB0_Transfer_phase2.keras` or `best_model_EfficientNetB0_Transfer.keras`) in the parent directory
+- The trained model file (`skin_lesion_model.pth`) in the parent directory
 
 ## 📊 Skin Lesion Classes
 
@@ -84,10 +85,11 @@ The model can classify 7 types of skin lesions:
 
 - **Backend**: Flask (Python)
 - **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **Model**: EfficientNetB0 with Transfer Learning
+- **Model**: ResNet50 with Transfer Learning
+- **Framework**: PyTorch
 - **Dataset**: HAM10000 (10,015 dermatoscopic images)
-- **Image Processing**: TensorFlow/Keras preprocessing
-- **Input Size**: 254x254 RGB images
+- **Image Processing**: TorchVision transforms with ImageNet normalization
+- **Input Size**: 224x224 RGB images
 
 ## 📝 API Endpoints
 
@@ -133,4 +135,4 @@ The web app features:
 
 ---
 
-Built with ❤️ using TensorFlow/Keras and Flask
+Built with ❤️ using PyTorch and Flask
