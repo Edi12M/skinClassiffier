@@ -1,12 +1,12 @@
 """
 Skin Lesion Classification Web Application
-Streamlit app for serving model predictions
+Streamlit app for serving model predictions (PyTorch version)
 """
 
 import streamlit as st
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.applications.efficientnet import preprocess_input
+import torch
+import torch.nn as nn
+from torchvision import models, transforms
 import numpy as np
 from PIL import Image
 import os
@@ -19,7 +19,17 @@ st.set_page_config(
 )
 
 # Configuration
-IMG_SIZE = 254
+IMG_SIZE = 224  # ResNet50 uses 224x224
+
+# Device configuration
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Image transforms for PyTorch (matching training transforms)
+val_transform = transforms.Compose([
+    transforms.Resize((IMG_SIZE, IMG_SIZE)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+])
 
 # Class names mapping
 CLASS_NAMES = {
@@ -80,38 +90,35 @@ CLASS_DESCRIPTIONS = {
 
 @st.cache_resource
 def load_model():
-    """Load the trained model (cached for performance)"""
+    """Load the trained PyTorch model (cached for performance)"""
     # Try multiple possible paths
     possible_paths = [
-        os.path.join(os.path.dirname(__file__), '..', 'best_model_EfficientNetB0_Transfer_phase2.keras'),
-        os.path.join(os.path.dirname(__file__), 'best_model_EfficientNetB0_Transfer_phase2.keras'),
-        'best_model_EfficientNetB0_Transfer_phase2.keras',
-        '../best_model_EfficientNetB0_Transfer_phase2.keras'
+        os.path.join(os.path.dirname(__file__), '..', 'skin_lesion_model.pth'),
+        os.path.join(os.path.dirname(__file__), 'skin_lesion_model.pth'),
+        'skin_lesion_model.pth',
+        '../skin_lesion_model.pth'
     ]
     
     for path in possible_paths:
         if os.path.exists(path):
-            return keras.models.load_model(path)
+            model = torch.load(path, map_location=device, weights_only=False)
+            model.eval()
+            model.to(device)
+            return model
     
-    st.error("Model file not found! Please ensure 'best_model_EfficientNetB0_Transfer_phase2.keras' is in the correct location.")
+    st.error("Model file not found! Please ensure 'skin_lesion_model.pth' is in the correct location.")
     return None
 
 def preprocess_image(image):
     """Preprocess image for model prediction"""
-    # Resize image
-    img = image.resize((IMG_SIZE, IMG_SIZE))
-    # Convert to array
-    img_array = np.array(img)
     # Ensure RGB
-    if len(img_array.shape) == 2:
-        img_array = np.stack([img_array] * 3, axis=-1)
-    elif img_array.shape[-1] == 4:
-        img_array = img_array[:, :, :3]
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
+    # Apply PyTorch transforms
+    img_tensor = val_transform(image)
     # Add batch dimension
-    img_array = np.expand_dims(img_array, axis=0)
-    # Apply EfficientNet preprocessing
-    img_array = preprocess_input(img_array.astype('float32'))
-    return img_array
+    img_tensor = img_tensor.unsqueeze(0)
+    return img_tensor.to(device)
 
 def main():
     # Custom CSS
@@ -164,11 +171,10 @@ def main():
         
         st.header("📊 Model Info")
         st.write("""
-        - **Architecture:** EfficientNetB0
+        - **Architecture:** ResNet50
         - **Training:** Transfer Learning
-        - **Dataset:** 10,015 images
-        - **Accuracy:** ~67%
-        - **AUC-ROC:** 92.7%
+        - **Framework:** PyTorch
+        - **Dataset:** HAM10000 (10,015 images)
         """)
         
         st.header("🏥 Lesion Types")
@@ -194,7 +200,7 @@ def main():
         if uploaded_file is not None:
             # Display uploaded image
             image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image", use_container_width=True)
+            st.image(image, caption="Uploaded Image", width="stretch")
     
     with col2:
         st.header("🔍 Analysis Results")
@@ -210,10 +216,14 @@ def main():
                     # Preprocess
                     processed_image = preprocess_image(image)
                     
-                    # Predict
-                    predictions = model.predict(processed_image, verbose=0)
-                    predicted_class_idx = np.argmax(predictions[0])
-                    confidence = float(predictions[0][predicted_class_idx]) * 100
+                    # Predict (PyTorch)
+                    with torch.no_grad():
+                        outputs = model(processed_image)
+                        probabilities = torch.softmax(outputs, dim=1)[0]
+                        predictions = probabilities.cpu().numpy()
+                    
+                    predicted_class_idx = int(np.argmax(predictions))
+                    confidence = float(predictions[predicted_class_idx]) * 100
                     
                     predicted_class = CLASS_NAMES[predicted_class_idx]
                     class_info = CLASS_DESCRIPTIONS[predicted_class]
@@ -236,7 +246,7 @@ def main():
                 
                 # Create bar chart data
                 probs_data = {
-                    CLASS_DESCRIPTIONS[CLASS_NAMES[i]]['name']: float(predictions[0][i]) * 100
+                    CLASS_DESCRIPTIONS[CLASS_NAMES[i]]['name']: float(predictions[i]) * 100
                     for i in range(len(CLASS_NAMES))
                 }
                 

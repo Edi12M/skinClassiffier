@@ -1,12 +1,13 @@
 """
 Skin Lesion Classification Web Application
-Flask backend for serving model predictions
+Flask backend for serving model predictions (PyTorch version)
 """
 
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-import tensorflow as tf
-from tensorflow import keras
+import torch
+import torch.nn as nn
+from torchvision import models, transforms
 import numpy as np
 from PIL import Image
 import io
@@ -16,8 +17,11 @@ app = Flask(__name__)
 CORS(app)
 
 # Configuration
-IMG_SIZE = 254
-MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'best_model_EfficientNetB0_Transfer_phase2.keras')
+IMG_SIZE = 224  # ResNet50 uses 224x224
+MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'skin_lesion_model.pth')
+
+# Device configuration
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Class names mapping
 CLASS_NAMES = {
@@ -79,23 +83,26 @@ CLASS_DESCRIPTIONS = {
 # Load model globally
 model = None
 
+# Image transforms for PyTorch (matching training transforms)
+val_transform = transforms.Compose([
+    transforms.Resize((IMG_SIZE, IMG_SIZE)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+])
+
 def load_model():
-    """Load the trained Keras model"""
+    """Load the trained PyTorch model"""
     global model
     if model is None:
         print(f"Loading model from: {MODEL_PATH}")
         if os.path.exists(MODEL_PATH):
-            model = keras.models.load_model(MODEL_PATH)
+            model = torch.load(MODEL_PATH, map_location=device, weights_only=False)
+            model.eval()
+            model.to(device)
             print("Model loaded successfully!")
         else:
-            # Try alternative path
-            alt_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'best_model_EfficientNetB0_Transfer.keras')
-            if os.path.exists(alt_path):
-                model = keras.models.load_model(alt_path)
-                print(f"Model loaded from alternative path: {alt_path}")
-            else:
-                print(f"ERROR: Model not found at {MODEL_PATH} or {alt_path}")
-                return None
+            print(f"ERROR: Model not found at {MODEL_PATH}")
+            return None
     return model
 
 def preprocess_image(image_bytes):
@@ -107,19 +114,13 @@ def preprocess_image(image_bytes):
     if img.mode != 'RGB':
         img = img.convert('RGB')
     
-    # Resize to model input size
-    img = img.resize((IMG_SIZE, IMG_SIZE))
-    
-    # Convert to numpy array
-    img_array = np.array(img, dtype=np.float32)
-    
-    # Apply EfficientNet preprocessing (scale to [-1, 1])
-    img_array = tf.keras.applications.efficientnet.preprocess_input(img_array)
+    # Apply PyTorch transforms
+    img_tensor = val_transform(img)
     
     # Add batch dimension
-    img_array = np.expand_dims(img_array, axis=0)
+    img_tensor = img_tensor.unsqueeze(0)
     
-    return img_array
+    return img_tensor.to(device)
 
 @app.route('/')
 def index():
@@ -148,15 +149,19 @@ def predict():
         if model is None:
             return jsonify({'error': 'Model not loaded. Please check server logs.'}), 500
         
-        # Get prediction
-        predictions = model.predict(processed_image, verbose=0)
-        predicted_class_idx = int(np.argmax(predictions[0]))
+        # Get prediction (PyTorch)
+        with torch.no_grad():
+            outputs = model(processed_image)
+            probabilities = torch.softmax(outputs, dim=1)[0]
+            predictions = probabilities.cpu().numpy()
+        
+        predicted_class_idx = int(np.argmax(predictions))
         predicted_class = CLASS_NAMES[predicted_class_idx]
-        confidence = float(predictions[0][predicted_class_idx]) * 100
+        confidence = float(predictions[predicted_class_idx]) * 100
         
         # Get all class probabilities
         all_predictions = []
-        for idx, prob in enumerate(predictions[0]):
+        for idx, prob in enumerate(predictions):
             class_code = CLASS_NAMES[idx]
             all_predictions.append({
                 'class_code': class_code,
@@ -193,7 +198,7 @@ def model_info():
     """Return information about the model"""
     return jsonify({
         'name': 'Skin Lesion Classifier',
-        'architecture': 'EfficientNetB0 (Transfer Learning)',
+        'architecture': 'ResNet50 (Transfer Learning)',
         'input_size': f'{IMG_SIZE}x{IMG_SIZE}',
         'num_classes': 7,
         'classes': [
@@ -206,7 +211,7 @@ def model_info():
             for code, info in CLASS_DESCRIPTIONS.items()
         ],
         'dataset': 'HAM10000',
-        'framework': 'TensorFlow/Keras'
+        'framework': 'PyTorch'
     })
 
 if __name__ == '__main__':
